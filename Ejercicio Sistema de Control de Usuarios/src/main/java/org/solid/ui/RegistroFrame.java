@@ -9,119 +9,413 @@ import org.solid.services.UsuarioService;
 import javax.swing.*;
 import java.awt.*;
 import java.io.Serial;
+import java.util.regex.Pattern;
 
 /**
- * Ventana para registrar nuevos usuarios.
+ * Ventana para registro de nuevos usuarios en el sistema.
  *
- * <p>Responsabilidades:
- * - SRP: solo maneja la UI de registro y delega la lógica al UsuarioService.
- * - DIP: recibe el servicio por constructor (dependencia por abstracción en capas superiores).</p>
+ * <p>Responsabilidades (SRP):
+ * - Gestionar interfaz de registro
+ * - Validar datos de entrada
+ * - Delegar creación de usuarios al servicio</p>
  *
- * Diseñada para ser compatible con LoginFrame en el mismo paquete (org.solid.ui).
+ * <p>Principios aplicados:
+ * - SRP: Solo maneja UI de registro
+ * - DIP: Recibe UsuarioService por constructor (abstracción)
+ * - OCP: Fácil agregar nuevos roles al combo sin modificar lógica</p>
+ *
+ * @author Sistema SOLID
+ * @version 2.0
  */
 public class RegistroFrame extends JFrame {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private final JTextField userField;
-    private final JPasswordField passField;
-    private final JComboBox<String> rolCombo;
+    // Constantes de validación
+    private static final int MIN_USERNAME_LENGTH = 3;
+    private static final int MAX_USERNAME_LENGTH = 20;
+    private static final int MIN_PASSWORD_LENGTH = 4;
+    private static final int MAX_PASSWORD_LENGTH = 50;
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+
+    // Dimensiones de ventana
+    private static final int WINDOW_WIDTH = 450;
+    private static final int WINDOW_HEIGHT = 320;
+
+    // Componentes UI
+    private JTextField userField;
+    private JPasswordField passField;
+    private JPasswordField confirmPassField;
+    private JComboBox<String> rolCombo;
+    private JTextArea descripcionRolArea;
+
+    // Servicio (inyección de dependencias)
     private final UsuarioService usuarioService;
 
     /**
-     * Crea la ventana de registro recibiendo la dependencia UsuarioService.
+     * Constructor principal. Recibe el servicio de usuarios por inyección.
      *
-     * @param usuarioService servicio para gestionar usuarios (no nulo)
+     * @param usuarioService Servicio para gestionar usuarios (no puede ser null)
+     * @throws IllegalArgumentException si usuarioService es null
      */
     public RegistroFrame(final UsuarioService usuarioService) {
-        super("Registrar Nuevo Usuario");
+        super("Registro de Nuevo Usuario");
 
+        // Validación de dependencia (fail-fast)
         if (usuarioService == null) {
-            throw new IllegalArgumentException("usuarioService no puede ser nulo");
+            throw new IllegalArgumentException("El servicio de usuarios no puede ser nulo");
         }
         this.usuarioService = usuarioService;
 
+        // Configuración de ventana
+        configurarVentana();
+
+        // Construcción de interfaz
+        construirInterfaz();
+    }
+
+    /**
+     * Configura las propiedades básicas de la ventana.
+     */
+    private void configurarVentana() {
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-        setSize(360, 240);
+        setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setResizable(false);
         setLocationRelativeTo(null);
+    }
 
-        JPanel content = new JPanel(new BorderLayout(8, 8));
-        content.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        setContentPane(content);
+    /**
+     * Construye toda la interfaz gráfica del formulario de registro.
+     */
+    private void construirInterfaz() {
+        // Panel principal
+        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setContentPane(contentPanel);
+
+        // Título
+        JLabel tituloLabel = new JLabel("Crear Nueva Cuenta", SwingConstants.CENTER);
+        tituloLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        contentPanel.add(tituloLabel, BorderLayout.NORTH);
 
         // Formulario central
-        JPanel form = new JPanel(new GridLayout(3, 2, 8, 8));
-        form.add(new JLabel("Usuario:"));
-        userField = new JTextField();
-        form.add(userField);
+        JPanel formPanel = crearPanelFormulario();
+        contentPanel.add(formPanel, BorderLayout.CENTER);
 
-        form.add(new JLabel("Contraseña:"));
-        passField = new JPasswordField();
-        form.add(passField);
+        // Panel de descripción de rol
+        JPanel descripcionPanel = crearPanelDescripcionRol();
+        contentPanel.add(descripcionPanel, BorderLayout.EAST);
 
-        form.add(new JLabel("Rol:"));
-        rolCombo = new JComboBox<>(new String[]{"Administrador", "Usuario", "Invitado"});
-        form.add(rolCombo);
-
-        // Botón crear
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton crearButton = new JButton("Crear Usuario");
-        crearButton.addActionListener(e -> crearUsuario());
-        footer.add(crearButton);
-
-        content.add(form, BorderLayout.CENTER);
-        content.add(footer, BorderLayout.SOUTH);
+        // Botones inferiores
+        JPanel buttonPanel = crearPanelBotones();
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
     }
 
     /**
-     * Valida los campos y solicita al servicio crear el usuario.
-     * Muestra mensajes claros y cierra la ventana al crear correctamente.
-     */
-    private void crearUsuario() {
-        final String username = userField.getText() == null ? "" : userField.getText().trim();
-        final String password = passField.getPassword() == null ? "" : new String(passField.getPassword());
-
-        if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "El nombre de usuario y la contraseña son obligatorios.",
-                    "Advertencia", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        final String rolSeleccionado = (String) rolCombo.getSelectedItem();
-        final Rol rol = mapearRol(rolSeleccionado);
-
-        final boolean creado = usuarioService.crearUsuario(username, password, rol);
-        if (creado) {
-            JOptionPane.showMessageDialog(this,
-                    "Usuario creado correctamente.",
-                    "Éxito", JOptionPane.INFORMATION_MESSAGE);
-            dispose();
-            return;
-        }
-
-        JOptionPane.showMessageDialog(this,
-                "No se pudo crear el usuario: ya existe un usuario con ese nombre.",
-                "Error", JOptionPane.ERROR_MESSAGE);
-    }
-
-    /**
-     * Mapea el texto del combo a la implementación concreta de Rol.
-     * Separación de responsabilidad para facilitar futuras extensiones (OCP).
+     * Crea el panel del formulario con todos los campos.
      *
-     * @param nombreRol nombre del rol seleccionado
-     * @return instancia de Rol correspondiente (nunca nulo)
+     * @return Panel con formulario completo
+     */
+    private JPanel crearPanelFormulario() {
+        JPanel formPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createTitledBorder("Datos del Usuario"));
+
+        // Campo usuario
+        formPanel.add(new JLabel("Usuario:"));
+        userField = new JTextField();
+        userField.setToolTipText("Solo letras, números y guión bajo (" +
+                MIN_USERNAME_LENGTH + "-" + MAX_USERNAME_LENGTH + " caracteres)");
+        formPanel.add(userField);
+
+        // Campo contraseña
+        formPanel.add(new JLabel("Contraseña:"));
+        passField = new JPasswordField();
+        passField.setToolTipText("Mínimo " + MIN_PASSWORD_LENGTH + " caracteres");
+        formPanel.add(passField);
+
+        // Campo confirmar contraseña
+        formPanel.add(new JLabel("Confirmar:"));
+        confirmPassField = new JPasswordField();
+        confirmPassField.setToolTipText("Debe coincidir con la contraseña");
+        confirmPassField.addActionListener(e -> intentarRegistro());
+        formPanel.add(confirmPassField);
+
+        // Selector de rol
+        formPanel.add(new JLabel("Rol:"));
+        rolCombo = new JComboBox<>(new String[]{"Usuario", "Administrador", "Invitado"});
+        rolCombo.setToolTipText("Seleccione el nivel de acceso del usuario");
+        rolCombo.addActionListener(e -> actualizarDescripcionRol());
+        formPanel.add(rolCombo);
+
+        return formPanel;
+    }
+
+    /**
+     * Crea el panel que muestra la descripción del rol seleccionado.
+     *
+     * @return Panel con área de texto informativa
+     */
+    private JPanel crearPanelDescripcionRol() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("Información del Rol"));
+        panel.setPreferredSize(new Dimension(180, 0));
+
+        descripcionRolArea = new JTextArea();
+        descripcionRolArea.setEditable(false);
+        descripcionRolArea.setLineWrap(true);
+        descripcionRolArea.setWrapStyleWord(true);
+        descripcionRolArea.setBackground(new Color(240, 240, 240));
+        descripcionRolArea.setFont(new Font("Arial", Font.PLAIN, 11));
+
+        // Descripción inicial
+        actualizarDescripcionRol();
+
+        JScrollPane scrollPane = new JScrollPane(descripcionRolArea);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    /**
+     * Actualiza la descripción del rol según la selección del combo.
+     * Aplica OCP: Fácil agregar nuevos roles sin modificar este método.
+     */
+    private void actualizarDescripcionRol() {
+        String rolSeleccionado = (String) rolCombo.getSelectedItem();
+        Rol rol = mapearRol(rolSeleccionado);
+
+        StringBuilder descripcion = new StringBuilder();
+        descripcion.append("Rol: ").append(rol.getNombre()).append("\n\n");
+        descripcion.append(rol.descripcionRol()).append("\n\n");
+
+        // Permisos específicos según el rol
+        if (rol instanceof Administrador) {
+            descripcion.append("Permisos:\n");
+            descripcion.append("• Acceso total\n");
+            descripcion.append("• Gestión de usuarios\n");
+            descripcion.append("• Configuración del sistema");
+        } else if (rol instanceof UsuarioRegular) {
+            descripcion.append("Permisos:\n");
+            descripcion.append("• Acceso a funciones básicas\n");
+            descripcion.append("• Lectura y escritura\n");
+            descripcion.append("• Perfil personalizado");
+        } else if (rol instanceof Invitado) {
+            descripcion.append("Permisos:\n");
+            descripcion.append("• Solo lectura\n");
+            descripcion.append("• Vista pública\n");
+            descripcion.append("• Acceso limitado");
+        }
+
+        descripcionRolArea.setText(descripcion.toString());
+        descripcionRolArea.setCaretPosition(0);
+    }
+
+    /**
+     * Crea el panel de botones (Crear y Cancelar).
+     *
+     * @return Panel con botones de acción
+     */
+    private JPanel crearPanelBotones() {
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+
+        JButton cancelButton = new JButton("Cancelar");
+        cancelButton.addActionListener(e -> dispose());
+        cancelButton.setToolTipText("Cerrar sin crear usuario");
+
+        JButton crearButton = new JButton("Crear Usuario");
+        crearButton.addActionListener(e -> intentarRegistro());
+        crearButton.setToolTipText("Registrar nuevo usuario en el sistema");
+
+        // Estilo para botón principal
+        crearButton.setBackground(new Color(34, 139, 34));
+        crearButton.setForeground(Color.WHITE);
+        crearButton.setFocusPainted(false);
+
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(crearButton);
+
+        return buttonPanel;
+    }
+
+    /**
+     * Valida los datos y solicita la creación del usuario al servicio.
+     * Aplica SRP: Método específico para lógica de registro.
+     */
+    private void intentarRegistro() {
+        // Obtener datos del formulario
+        String username = userField.getText();
+        char[] passwordChars = passField.getPassword();
+        char[] confirmPasswordChars = confirmPassField.getPassword();
+        String password = new String(passwordChars);
+        String confirmPassword = new String(confirmPasswordChars);
+
+        // Validar entrada
+        if (!validarDatosRegistro(username, password, confirmPassword)) {
+            limpiarPasswordsMemoria(passwordChars, confirmPasswordChars);
+            return;
+        }
+
+        // Mapear rol seleccionado (OCP: extensible a nuevos roles)
+        String rolSeleccionado = (String) rolCombo.getSelectedItem();
+        Rol rol = mapearRol(rolSeleccionado);
+
+        // Intentar crear usuario (DIP: delegado al servicio)
+        boolean creado = usuarioService.crearUsuario(username.trim(), password, rol);
+
+        // Limpiar contraseñas de memoria
+        limpiarPasswordsMemoria(passwordChars, confirmPasswordChars);
+
+        if (creado) {
+            mostrarExito(username.trim(), rol.getNombre());
+            dispose();
+        } else {
+            mostrarErrorUsuarioExistente(username.trim());
+        }
+    }
+
+    /**
+     * Valida todos los campos del formulario de registro.
+     *
+     * @param username Nombre de usuario ingresado
+     * @param password Contraseña ingresada
+     * @param confirmPassword Confirmación de contraseña
+     * @return true si todos los datos son válidos
+     */
+    private boolean validarDatosRegistro(String username, String password, String confirmPassword) {
+        // Validar username
+        if (username == null || username.trim().isEmpty()) {
+            mostrarAdvertencia("El nombre de usuario es obligatorio.");
+            return false;
+        }
+
+        String usernameTrim = username.trim();
+
+        if (usernameTrim.length() < MIN_USERNAME_LENGTH) {
+            mostrarAdvertencia("El usuario debe tener al menos " +
+                    MIN_USERNAME_LENGTH + " caracteres.");
+            return false;
+        }
+
+        if (usernameTrim.length() > MAX_USERNAME_LENGTH) {
+            mostrarAdvertencia("El usuario no puede exceder " +
+                    MAX_USERNAME_LENGTH + " caracteres.");
+            return false;
+        }
+
+        if (!USERNAME_PATTERN.matcher(usernameTrim).matches()) {
+            mostrarAdvertencia("El usuario solo puede contener letras, números y guión bajo.");
+            return false;
+        }
+
+        // Validar password
+        if (password.isEmpty()) {
+            mostrarAdvertencia("La contraseña es obligatoria.");
+            return false;
+        }
+
+        if (password.length() < MIN_PASSWORD_LENGTH) {
+            mostrarAdvertencia("La contraseña debe tener al menos " +
+                    MIN_PASSWORD_LENGTH + " caracteres.");
+            return false;
+        }
+
+        if (password.length() > MAX_PASSWORD_LENGTH) {
+            mostrarAdvertencia("La contraseña no puede exceder " +
+                    MAX_PASSWORD_LENGTH + " caracteres.");
+            return false;
+        }
+
+        // Validar confirmación
+        if (!password.equals(confirmPassword)) {
+            mostrarAdvertencia("Las contraseñas no coinciden.\n\n" +
+                    "Por favor, verifique que ambos campos sean idénticos.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Mapea el nombre del rol a su implementación concreta.
+     * Aplica OCP: Fácil agregar nuevos casos sin modificar la estructura.
+     *
+     * @param nombreRol Nombre del rol seleccionado en el combo
+     * @return Instancia concreta del rol
      */
     private Rol mapearRol(final String nombreRol) {
-        if ("Administrador".equalsIgnoreCase(nombreRol)) {
-            return new Administrador();
+        return switch (nombreRol) {
+            case "Administrador" -> new Administrador();
+            case "Usuario" -> new UsuarioRegular();
+            case "Invitado" -> new Invitado();
+            default -> new UsuarioRegular(); // Valor por defecto seguro
+        };
+    }
+
+    /**
+     * Muestra mensaje de éxito tras crear el usuario.
+     *
+     * @param username Nombre del usuario creado
+     * @param rolNombre Nombre del rol asignado
+     */
+    private void mostrarExito(String username, String rolNombre) {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+
+        JLabel mensaje = new JLabel(
+                "<html><center>" +
+                        "Usuario creado correctamente<br><br>" +
+                        "<b>" + username + "</b><br>" +
+                        "Rol: <i>" + rolNombre + "</i>" +
+                        "</center></html>",
+                SwingConstants.CENTER
+        );
+
+        panel.add(mensaje, BorderLayout.CENTER);
+
+        JOptionPane.showMessageDialog(this,
+                panel,
+                "¡Registro Exitoso!",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /**
+     * Muestra mensaje de error cuando el usuario ya existe.
+     *
+     * @param username Nombre del usuario que ya existe
+     */
+    private void mostrarErrorUsuarioExistente(String username) {
+        JOptionPane.showMessageDialog(this,
+                "No se pudo crear el usuario.\n\n" +
+                        "Ya existe un usuario con el nombre \"" + username + "\".\n" +
+                        "Por favor, elija otro nombre.",
+                "Usuario Existente",
+                JOptionPane.ERROR_MESSAGE);
+    }
+
+    /**
+     * Muestra mensaje de advertencia genérico.
+     *
+     * @param mensaje Texto a mostrar
+     */
+    private void mostrarAdvertencia(String mensaje) {
+        JOptionPane.showMessageDialog(this,
+                mensaje,
+                "Validación de Datos",
+                JOptionPane.WARNING_MESSAGE);
+    }
+
+    /**
+     * Limpia arrays de contraseñas de la memoria por seguridad.
+     *
+     * @param passwordChars Array de contraseña
+     * @param confirmPasswordChars Array de confirmación
+     */
+    private void limpiarPasswordsMemoria(char[] passwordChars, char[] confirmPasswordChars) {
+        if (passwordChars != null) {
+            java.util.Arrays.fill(passwordChars, ' ');
         }
-        if ("Usuario".equalsIgnoreCase(nombreRol)) {
-            return new UsuarioRegular();
+        if (confirmPasswordChars != null) {
+            java.util.Arrays.fill(confirmPasswordChars, ' ');
         }
-        // Por defecto Invitado
-        return new Invitado();
     }
 }
