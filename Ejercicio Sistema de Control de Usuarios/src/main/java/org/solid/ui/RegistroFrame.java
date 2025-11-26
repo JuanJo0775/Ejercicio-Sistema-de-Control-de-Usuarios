@@ -29,6 +29,54 @@ import java.util.regex.Pattern;
  */
 public class RegistroFrame extends JFrame {
 
+    // ================= CONSTANTES PARA EVITAR STRINGS DUPLICADOS =================
+
+    private static final String DESCRIPCION_ROL_TEMPLATE = """
+        Rol: %s
+
+        %s
+
+        %s
+        """;
+
+    private static final String PERMISOS_ADMIN = """
+        Permisos:
+        • Acceso total
+        • Gestión de usuarios
+        • Configuración del sistema
+        """;
+
+    private static final String PERMISOS_USUARIO = """
+        Permisos:
+        • Acceso a funciones básicas
+        • Lectura y escritura
+        • Perfil personalizado
+        """;
+
+    private static final String PERMISOS_INVITADO = """
+        Permisos:
+        • Solo lectura
+        • Vista pública
+        • Acceso limitado
+        """;
+
+    // ================= CONSTANTES PARA MENSAJES =================
+
+    private static final String MSG_USERNAME_REQUIRED = "El nombre de usuario es obligatorio.";
+    private static final String MSG_USERNAME_MIN = "El usuario debe tener al menos %d caracteres.";
+    private static final String MSG_USERNAME_MAX = "El usuario no puede exceder %d caracteres.";
+    private static final String MSG_USERNAME_PATTERN = "El usuario solo puede contener letras, números y guión bajo.";
+
+    private static final String MSG_PASSWORD_REQUIRED = "La contraseña es obligatoria.";
+    private static final String MSG_PASSWORD_MIN = "La contraseña debe tener al menos %d caracteres.";
+    private static final String MSG_PASSWORD_MAX = "La contraseña no puede exceder %d caracteres.";
+
+    private static final String MSG_PASSWORD_NO_MATCH = """
+        Las contraseñas no coinciden.
+
+        Por favor, verifique que ambos campos sean idénticos.
+        """;
+
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -37,7 +85,7 @@ public class RegistroFrame extends JFrame {
     private static final int MAX_USERNAME_LENGTH = 20;
     private static final int MIN_PASSWORD_LENGTH = 4;
     private static final int MAX_PASSWORD_LENGTH = 50;
-    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^\\w+$");
 
     // Dimensiones de ventana
     private static final int WINDOW_WIDTH = 450;
@@ -51,7 +99,7 @@ public class RegistroFrame extends JFrame {
     private JTextArea descripcionRolArea;
 
     // Servicio (inyección de dependencias)
-    private final UsuarioService usuarioService;
+    private final transient UsuarioService usuarioService;
 
     /**
      * Constructor principal. Recibe el servicio de usuarios por inyección.
@@ -185,31 +233,27 @@ public class RegistroFrame extends JFrame {
         String rolSeleccionado = (String) rolCombo.getSelectedItem();
         Rol rol = mapearRol(rolSeleccionado);
 
-        StringBuilder descripcion = new StringBuilder();
-        descripcion.append("Rol: ").append(rol.getNombre()).append("\n\n");
-        descripcion.append(rol.descripcionRol()).append("\n\n");
+        String permisos = "";
 
-        // Permisos específicos según el rol
         if (rol instanceof Administrador) {
-            descripcion.append("Permisos:\n");
-            descripcion.append("• Acceso total\n");
-            descripcion.append("• Gestión de usuarios\n");
-            descripcion.append("• Configuración del sistema");
+            permisos = PERMISOS_ADMIN;
         } else if (rol instanceof UsuarioRegular) {
-            descripcion.append("Permisos:\n");
-            descripcion.append("• Acceso a funciones básicas\n");
-            descripcion.append("• Lectura y escritura\n");
-            descripcion.append("• Perfil personalizado");
+            permisos = PERMISOS_USUARIO;
         } else if (rol instanceof Invitado) {
-            descripcion.append("Permisos:\n");
-            descripcion.append("• Solo lectura\n");
-            descripcion.append("• Vista pública\n");
-            descripcion.append("• Acceso limitado");
+            permisos = PERMISOS_INVITADO;
         }
 
-        descripcionRolArea.setText(descripcion.toString());
+        String descripcionFinal = String.format(
+                DESCRIPCION_ROL_TEMPLATE,
+                rol.getNombre(),
+                rol.descripcionRol(),
+                permisos
+        );
+
+        descripcionRolArea.setText(descripcionFinal);
         descripcionRolArea.setCaretPosition(0);
     }
+
 
     /**
      * Crea el panel de botones (Crear y Cancelar).
@@ -283,58 +327,55 @@ public class RegistroFrame extends JFrame {
      * @return true si todos los datos son válidos
      */
     private boolean validarDatosRegistro(String username, String password, String confirmPassword) {
-        // Validar username
+
+        // ===== Validar username =====
         if (username == null || username.trim().isEmpty()) {
-            mostrarAdvertencia("El nombre de usuario es obligatorio.");
+            mostrarAdvertencia(MSG_USERNAME_REQUIRED);
             return false;
         }
 
         String usernameTrim = username.trim();
 
         if (usernameTrim.length() < MIN_USERNAME_LENGTH) {
-            mostrarAdvertencia("El usuario debe tener al menos " +
-                    MIN_USERNAME_LENGTH + " caracteres.");
+            mostrarAdvertencia(String.format(MSG_USERNAME_MIN, MIN_USERNAME_LENGTH));
             return false;
         }
 
         if (usernameTrim.length() > MAX_USERNAME_LENGTH) {
-            mostrarAdvertencia("El usuario no puede exceder " +
-                    MAX_USERNAME_LENGTH + " caracteres.");
+            mostrarAdvertencia(String.format(MSG_USERNAME_MAX, MAX_USERNAME_LENGTH));
             return false;
         }
 
         if (!USERNAME_PATTERN.matcher(usernameTrim).matches()) {
-            mostrarAdvertencia("El usuario solo puede contener letras, números y guión bajo.");
+            mostrarAdvertencia(MSG_USERNAME_PATTERN);
             return false;
         }
 
-        // Validar password
-        if (password.isEmpty()) {
-            mostrarAdvertencia("La contraseña es obligatoria.");
+        // ===== Validar password =====
+        if (password == null || password.isEmpty()) {
+            mostrarAdvertencia(MSG_PASSWORD_REQUIRED);
             return false;
         }
 
         if (password.length() < MIN_PASSWORD_LENGTH) {
-            mostrarAdvertencia("La contraseña debe tener al menos " +
-                    MIN_PASSWORD_LENGTH + " caracteres.");
+            mostrarAdvertencia(String.format(MSG_PASSWORD_MIN, MIN_PASSWORD_LENGTH));
             return false;
         }
 
         if (password.length() > MAX_PASSWORD_LENGTH) {
-            mostrarAdvertencia("La contraseña no puede exceder " +
-                    MAX_PASSWORD_LENGTH + " caracteres.");
+            mostrarAdvertencia(String.format(MSG_PASSWORD_MAX, MAX_PASSWORD_LENGTH));
             return false;
         }
 
-        // Validar confirmación
+        // ===== Validar confirmación =====
         if (!password.equals(confirmPassword)) {
-            mostrarAdvertencia("Las contraseñas no coinciden.\n\n" +
-                    "Por favor, verifique que ambos campos sean idénticos.");
+            mostrarAdvertencia(MSG_PASSWORD_NO_MATCH);
             return false;
         }
 
         return true;
     }
+
 
     /**
      * Mapea el nombre del rol a su implementación concreta.

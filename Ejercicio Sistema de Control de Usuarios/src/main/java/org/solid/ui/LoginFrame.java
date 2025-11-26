@@ -45,8 +45,9 @@ public class LoginFrame extends JFrame {
     private JPasswordField passField;
 
     // Servicios (inyección de dependencias)
-    private final AutenticacionService authService;
-    private final UsuarioService usuarioService;
+    private final transient AutenticacionService authService;
+    private final transient UsuarioService usuarioService;
+
 
     /**
      * Constructor principal. Inicializa servicios y componentes gráficos.
@@ -296,12 +297,20 @@ public class LoginFrame extends JFrame {
      * Muestra mensaje de error cuando las credenciales son incorrectas.
      */
     private void mostrarErrorAutenticacion() {
-        JOptionPane.showMessageDialog(this,
-                "Usuario o contraseña incorrectos.\n\n" +
-                        "Verifique sus credenciales e intente nuevamente.",
+        String mensajeError = """
+            Usuario o contraseña incorrectos.
+
+            Verifique sus credenciales e intente nuevamente.
+            """;
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensajeError,
                 "Error de Autenticación",
-                JOptionPane.ERROR_MESSAGE);
+                JOptionPane.ERROR_MESSAGE
+        );
     }
+
 
     /**
      * Muestra mensaje de advertencia genérico.
