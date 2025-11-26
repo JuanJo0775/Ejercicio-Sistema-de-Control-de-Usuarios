@@ -366,7 +366,7 @@ El código cumple con las siguientes métricas de calidad:
 | **Code Smells** | ✅ 0    | Sin problemas de código |
 | **Bugs** | ✅ 0    | Sin errores detectados |
 | **Vulnerabilidades** | ✅ 0    | Código seguro |
-| **Duplicación** | ✅ <3%  | Código DRY |
+| **Duplicación** | ✅ 0    | Código DRY |
 | **Cobertura** | ⚠️ N/A | Sin tests unitarios |
 | **Complejidad Ciclomática** | ✅ 0    | Métodos simples |
 | **Documentación** | ✅ 100% | Todo documentado |
